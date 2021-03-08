@@ -30,4 +30,4 @@ Send the request and review imported data in django admin, core tab.
 
 # Tests
 
-Unit tests to be found in code>tests 
+Unit tests to be found in core>tests 
