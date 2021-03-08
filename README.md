@@ -31,3 +31,9 @@ Send the request and review imported data in django admin, core tab.
 # Tests
 
 Unit tests to be found in core>tests 
+
+
+# Project Structure:
+
+App "Core" contains all business logic.
+Folder Whys is the project folder.
