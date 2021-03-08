@@ -7,6 +7,7 @@ from core import serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.apps import apps
+from django.core.exceptions import FieldError
 from django.db.models import ForeignKey
 
 
@@ -14,8 +15,8 @@ class ImportDataView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-
-        records_that_couldnt_be_executed = [{}]
+        errors = []
+        records_that_couldnt_be_executed = []
         models = apps.get_app_config('core').get_models().gi_frame.f_locals["self"].models
         model_names = []
         for i in range(0, len(list(models.items()))):
@@ -30,11 +31,11 @@ class ImportDataView(APIView):
         data = request.data
         for ii in range(0, 3):
             if ii in [1, 2]:
-                if records_that_couldnt_be_executed == [{}]:
+                if not records_that_couldnt_be_executed:
                     return Response({"message": "Import successful."},
                         status=status.HTTP_201_CREATED)
                 data = records_that_couldnt_be_executed
-                records_that_couldnt_be_executed = [{}]
+                records_that_couldnt_be_executed = []
             for record in data:
                 if list(record.keys())[0].lower() not in model_names:
                     return Response({"message": f"Model {list(record.keys())[0]} not supported."},
@@ -52,29 +53,48 @@ class ImportDataView(APIView):
                             if ser.is_valid():
                                 ser.save()
                             elif ii in [0, 1]:
-                                records_that_couldnt_be_executed[0][list(record.keys())[0]] = record[the_model_name]
-
+                                records_that_couldnt_be_executed.append({list(record.keys())[0]: record[the_model_name]})
                             else:
-                                id = record[the_model_name]["id"]
                                 try:
+                                    obj_id = record[the_model_name]["id"]
                                     the_model = [modell[1] for modell in list(models.items()) if modell[0].lower() == the_model_name.lower()][0]
-                                    the_model.objects.filter(id=id).update(**record[the_model_name])
-                                    # obj.__dict__.update(record[the_model_name])
-                                    # obj.save(force_update=True)
+                                    the_model.objects.filter(id=obj_id).update(**record[the_model_name])
+                                except FieldError:
+                                    try:
+                                        obj_id = record[the_model_name]["id"]
+                                        catalog = Catalog.objects.get(id=obj_id)
+                                        if "products_ids" in record[the_model_name].keys():
+                                            product_ids = record[the_model_name].pop("products_ids")
+                                            catalog.products_ids.clear()
+                                            for id in product_ids:
+                                                catalog.products_ids.add(Product.objects.get(id=id))
+                                        if "attributes_ids" in record[the_model_name].keys():
+                                            attributes_ids = record[the_model_name].pop("attributes_ids")
+                                            catalog.attributes_ids.clear()
+                                            for id in attributes_ids:
+                                                catalog.attributes_ids.add(Attribute.objects.get(id=id))
+                                        catalog.save()
+                                        catalog.__dict__.update(**record[the_model_name])
+                                        catalog.save()
+                                    except Exception as e:
+                                        return Response({
+                                            "message": f"Failed to update a db record for model {the_model_name} for object with id {record[the_model_name][obj_id]}."},
+                                            status=status.HTTP_400_BAD_REQUEST)
                                 except:
-                                    Response({
-                                        "message": f"Failed to update a db record for model {the_model_name} for object with id {record[the_model_name][id]}."},
+                                    return Response({
+                                        "message": f"Failed to update a db record for model {the_model_name} for object with id {record[the_model_name][obj_id]}."},
                                         status=status.HTTP_400_BAD_REQUEST)
 
-                        except:
+                        except Exception as e:
+                            errors.append(e)
                             return Response({
                                                 "message": f"Failed to create a db record for model {the_model_name} with attributes {record[the_model_name]}."},
                                             status=status.HTTP_400_BAD_REQUEST)
-
-
-                    except:
+                    except Exception as e:
+                        errors.append(e)
                         return Response({"message": "Model does not exits."}, status=status.HTTP_400_BAD_REQUEST)
-                except:
+                except Exception as e:
+                    errors.append(e)
                     return Response({"message": "Invalid format"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Import successful."},
                         status=status.HTTP_201_CREATED)
