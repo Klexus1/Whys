@@ -3,7 +3,7 @@
 1) clone the repository in the root
 2) make virtual environment (Pycharm or mkvirtualenvwrapper using pip or other)
 3) activate virtual environment
-4) install requirements (pip install requirements.txt)
+4) install requirements (pip install -r requirements.txt)
 5) configure database in settings.py (defaults to mysql)
 6) migrate (eg py manage.py migrate)
 
