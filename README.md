@@ -4,7 +4,7 @@
 2) make virtual environment (Pycharm or mkvirtualenvwrapper using pip or other)
 3) activate virtual environment
 4) install requirements (pip install -r requirements.txt)
-5) configure database in settings.py (defaults to mysql)
+5) configure database in settings.py (defaults to sqlite)
 6) migrate (eg py manage.py migrate)
 
 # Initializing the app
